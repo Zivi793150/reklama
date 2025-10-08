@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: reklama-analytics
+    env: node
+    rootDir: server
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: PORT
+        value: 4000
+      - key: CLIENT_DIR
+        value: ../client
+      - key: DB_PATH
+        value: ./data.sqlite
+
