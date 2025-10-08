@@ -8,7 +8,12 @@ import { router } from './routes';
 import { runMigrations } from './db';
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: false, // Disable credentials to avoid CORS issues
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 
@@ -61,7 +66,7 @@ app.get('/integrate.js', (_req, res) => {
       try { return navigator.sendBeacon(endpoint, new Blob([body], headers)); } catch(_) {}
     }
     try {
-      return fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
+      return fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true, credentials: 'omit' });
     } catch (_) { /* noop */ }
   }
 
