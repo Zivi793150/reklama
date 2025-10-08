@@ -26,6 +26,8 @@ app.get('/integrate.js', (_req, res) => {
   const currentScript = document.currentScript || (function() { const scripts = document.getElementsByTagName('script'); return scripts[scripts.length - 1]; })();
   const base = new URL(currentScript.src).origin;
   const endpoint = base + '/api/webhook/forms';
+  const debug = (currentScript.getAttribute('data-debug') === '1');
+  const log = (...args) => { try { if (debug && window && window.console) console.log('[integrate]', ...args); } catch(_) {} };
 
   function getUTM() {
     const params = new URLSearchParams(window.location.search);
@@ -54,6 +56,7 @@ app.get('/integrate.js', (_req, res) => {
   function sendLead(payload) {
     const body = JSON.stringify(payload);
     const headers = { type: 'application/json' };
+    log('sendLead', payload);
     if (navigator.sendBeacon) {
       try { return navigator.sendBeacon(endpoint, new Blob([body], headers)); } catch(_) {}
     }
@@ -65,6 +68,7 @@ app.get('/integrate.js', (_req, res) => {
   function attach(form) {
     if (!form || form.__analyticsBound) return;
     form.__analyticsBound = true;
+    log('attach form', form);
     form.addEventListener('submit', () => {
       try {
         const payload = Object.assign(
@@ -76,6 +80,27 @@ app.get('/integrate.js', (_req, res) => {
           serializeForm(form)
         );
         sendLead(payload);
+      } catch (_) {}
+    }, { capture: true });
+
+    // Fallback: some sites submit forms via JS without dispatching submit
+    form.addEventListener('click', (ev) => {
+      try {
+        const t = ev.target;
+        if (!t) return;
+        const type = (t.getAttribute && t.getAttribute('type')) || '';
+        if (type.toLowerCase() === 'submit') {
+          const payload = Object.assign(
+            {
+              page: window.location.href,
+              source: currentScript.getAttribute('data-source') || 'website_form'
+            },
+            getUTM(),
+            serializeForm(form)
+          );
+          sendLead(payload);
+          log('fallback click submit');
+        }
       } catch (_) {}
     }, { capture: true });
   }
