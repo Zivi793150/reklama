@@ -213,7 +213,7 @@ app.get('/integrate.js', (_req, res) => {
     NativeXHR.prototype.send = function(body) {
       try {
         if (body && typeof FormData !== 'undefined' && body instanceof FormData) {
-          const data = {} as any;
+          const data = {};
           body.forEach((v, k) => { if (!(k in data)) data[k] = v; });
           if (data && (data.name || data.phone || data.email)) {
             const payload = Object.assign(
