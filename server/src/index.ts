@@ -9,8 +9,8 @@ import { runMigrations } from './db';
 
 const app = express();
 app.use(cors({
-  origin: true, // Allow all origins
-  credentials: false, // Disable credentials to avoid CORS issues
+  origin: true, // reflect request origin
+  credentials: true, // allow cookies/credentials if browser sends them
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
