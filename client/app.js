@@ -1,5 +1,5 @@
-const { useEffect, useState } = React;
-const { Table, Card, Row, Col, DatePicker, Select, Input, Space, Statistic, ConfigProvider, theme, Button, Upload, Modal, Tabs, Typography, Divider, Tag, message } = antd;
+const { useEffect, useState, useRef } = React;
+const { Table, Card, Row, Col, DatePicker, Select, Input, Space, Statistic, ConfigProvider, theme, Button, Upload, Modal, Tabs, Typography, Divider, Tag, message, Progress, Badge } = antd;
 
 function fetchJSON(url) {
   return axios.get(url).then(r => r.data);
@@ -14,10 +14,13 @@ function postFormData(url, formData) {
 }
 
 function SummaryCards({ metrics }) {
+  const conversionRate = metrics.total ? ((metrics.conversions || 0) / metrics.total * 100) : 0;
+  const roi = metrics.spend ? ((metrics.amount || 0) / metrics.spend * 100) : 0;
+  
   return (
     React.createElement(Row, { gutter: 16 }, [
       React.createElement(Col, { span: 6, key: 'total' },
-        React.createElement(Card, { style: { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' } },
+        React.createElement(Card, { style: { background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' } },
           React.createElement(Statistic, { 
             title: 'Всего лидов', 
             value: metrics.total || 0,
@@ -26,32 +29,40 @@ function SummaryCards({ metrics }) {
         )
       ),
       React.createElement(Col, { span: 6, key: 'conv' },
-        React.createElement(Card, { style: { background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' } },
+        React.createElement(Card, { style: { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' } },
           React.createElement(Statistic, { 
             title: 'Конверсии', 
             value: metrics.conversions || 0,
             valueStyle: { color: '#fff' }
-          })
+          }),
+          React.createElement('div', { style: { marginTop: 8, fontSize: '12px', color: 'rgba(255,255,255,0.8)' } }, 
+            `Конверсия: ${conversionRate.toFixed(1)}%`
+          )
         )
       ),
       React.createElement(Col, { span: 6, key: 'spend' },
-        React.createElement(Card, { style: { background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' } },
+        React.createElement(Card, { style: { background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' } },
           React.createElement(Statistic, { 
             title: 'Расход', 
             value: metrics.spend || 0, 
             precision: 2,
+            prefix: '₸',
             valueStyle: { color: '#fff' }
           })
         )
       ),
-      React.createElement(Col, { span: 6, key: 'cpa' },
-        React.createElement(Card, { style: { background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' } },
+      React.createElement(Col, { span: 6, key: 'roi' },
+        React.createElement(Card, { style: { background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' } },
           React.createElement(Statistic, { 
-            title: 'Средняя цена конверсии', 
-            value: metrics.avg_cpa || 0, 
-            precision: 2,
+            title: 'ROI', 
+            value: roi || 0, 
+            precision: 1,
+            suffix: '%',
             valueStyle: { color: '#fff' }
-          })
+          }),
+          React.createElement('div', { style: { marginTop: 8, fontSize: '12px', color: 'rgba(255,255,255,0.8)' } }, 
+            `Доход: ₸${(metrics.amount || 0).toFixed(0)}`
+          )
         )
       )
     ])
@@ -147,6 +158,194 @@ function CSVUpload({ onUpload }) {
   );
 }
 
+function ChartsSection({ data }) {
+  const chartRef = useRef(null);
+  const pieChartRef = useRef(null);
+  
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+    
+    // Prepare data for charts
+    const sourceData = {};
+    const cityData = {};
+    const dailyData = {};
+    
+    data.forEach(lead => {
+      // Source distribution
+      const source = lead.source || 'Неизвестно';
+      sourceData[source] = (sourceData[source] || 0) + 1;
+      
+      // City distribution
+      const city = lead.city || 'Неизвестно';
+      cityData[city] = (cityData[city] || 0) + 1;
+      
+      // Daily distribution
+      const date = lead.created_at ? lead.created_at.split('T')[0] : new Date().toISOString().split('T')[0];
+      dailyData[date] = (dailyData[date] || 0) + 1;
+    });
+    
+    // Line chart for daily leads
+    if (chartRef.current) {
+      const ctx = chartRef.current.getContext('2d');
+      const sortedDates = Object.keys(dailyData).sort();
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: sortedDates,
+          datasets: [{
+            label: 'Лиды по дням',
+            data: sortedDates.map(date => dailyData[date]),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // Pie chart for sources
+    if (pieChartRef.current) {
+      const ctx = pieChartRef.current.getContext('2d');
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+      
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(sourceData),
+          datasets: [{
+            data: Object.values(sourceData),
+            backgroundColor: colors.slice(0, Object.keys(sourceData).length),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+    }
+  }, [data]);
+  
+  return (
+    React.createElement(Row, { gutter: 16, style: { marginBottom: 24 } }, [
+      React.createElement(Col, { span: 12, key: 'line-chart' },
+        React.createElement(Card, { 
+          title: '📈 Динамика лидов',
+          className: 'chart-container'
+        },
+          React.createElement('canvas', { 
+            ref: chartRef,
+            style: { maxHeight: '300px' }
+          })
+        )
+      ),
+      React.createElement(Col, { span: 12, key: 'pie-chart' },
+        React.createElement(Card, { 
+          title: '🎯 Источники трафика',
+          className: 'chart-container'
+        },
+          React.createElement('canvas', { 
+            ref: pieChartRef,
+            style: { maxHeight: '300px' }
+          })
+        )
+      )
+    ])
+  );
+}
+
+function UTMAnalytics({ data }) {
+  const utmData = {};
+  
+  data.forEach(lead => {
+    if (lead.raw && typeof lead.raw === 'string') {
+      try {
+        const raw = JSON.parse(lead.raw);
+        const utmSource = raw.utm_source || 'Прямой трафик';
+        const utmMedium = raw.utm_medium || 'Неизвестно';
+        const utmCampaign = raw.utm_campaign || 'Неизвестно';
+        
+        const key = `${utmSource} / ${utmMedium}`;
+        if (!utmData[key]) {
+          utmData[key] = {
+            source: utmSource,
+            medium: utmMedium,
+            campaign: utmCampaign,
+            leads: 0,
+            conversions: 0,
+            spend: 0
+          };
+        }
+        
+        utmData[key].leads++;
+        if (lead.conversion) utmData[key].conversions++;
+        if (lead.spend) utmData[key].spend += lead.spend;
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    }
+  });
+  
+  const utmRows = Object.values(utmData).map((item, index) => ({
+    key: index,
+    source: item.source,
+    medium: item.medium,
+    campaign: item.campaign,
+    leads: item.leads,
+    conversions: item.conversions,
+    conversionRate: item.leads ? ((item.conversions / item.leads) * 100).toFixed(1) : '0',
+    spend: item.spend.toFixed(2),
+    cpa: item.conversions ? (item.spend / item.conversions).toFixed(2) : '0'
+  }));
+  
+  const utmColumns = [
+    { title: 'Источник', dataIndex: 'source', key: 'source' },
+    { title: 'Канал', dataIndex: 'medium', key: 'medium' },
+    { title: 'Кампания', dataIndex: 'campaign', key: 'campaign' },
+    { title: 'Лиды', dataIndex: 'leads', key: 'leads' },
+    { title: 'Конверсии', dataIndex: 'conversions', key: 'conversions' },
+    { title: 'Конверсия %', dataIndex: 'conversionRate', key: 'conversionRate' },
+    { title: 'Расход ₸', dataIndex: 'spend', key: 'spend' },
+    { title: 'CPA ₸', dataIndex: 'cpa', key: 'cpa' }
+  ];
+  
+  return (
+    React.createElement(Card, { 
+      title: '🎯 UTM Аналитика',
+      style: { marginBottom: 24 }
+    },
+      React.createElement(Table, {
+        dataSource: utmRows,
+        columns: utmColumns,
+        pagination: { pageSize: 10 },
+        size: 'small'
+      })
+    )
+  );
+}
+
 function ConnectorsList({ connectors }) {
   const [visible, setVisible] = useState(false);
   const [selectedConnector, setSelectedConnector] = useState(null);
@@ -161,7 +360,7 @@ function ConnectorsList({ connectors }) {
       React.createElement(Button, { 
         type: 'primary', 
         onClick: () => setVisible(true),
-        style: { marginBottom: 16, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }
+        style: { marginBottom: 16, background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', border: 'none' }
       }, '🔗 Подключить сайт'),
       React.createElement(Modal, {
         title: 'Подключение сайтов и CRM',
@@ -200,16 +399,16 @@ function ConnectorsList({ connectors }) {
             children: React.createElement('div', { style: { padding: '20px' } }, [
               React.createElement(Typography.Title, { level: 4 }, '1. CRM системы (Bitrix24, amoCRM)'),
               React.createElement('p', null, 'В настройках CRM найдите раздел "Вебхуки" или "Интеграции" и добавьте URL:'),
-              React.createElement('code', { style: { background: '#f5f5f5', padding: '4px 8px', borderRadius: '4px' } }, 
+              React.createElement('code', { style: { background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px' } }, 
                 `${window.location.origin}/api/webhook/${selectedConnector?.id || 'bitrix24'}`
               ),
               React.createElement(Divider, null),
               React.createElement(Typography.Title, { level: 4 }, '2. Формы на сайте — самый простой способ'),
               React.createElement('p', null, 'Скопируйте одну строку ниже и вставьте перед закрывающим тегом </body> на вашем сайте:'),
-              React.createElement('pre', { style: { background: '#f5f5f5', padding: '12px', borderRadius: '4px', overflow: 'auto' } }, 
+              React.createElement('pre', { style: { background: '#f1f5f9', padding: '12px', borderRadius: '4px', overflow: 'auto' } }, 
                 `<script src="${window.location.origin}/integrate.js" data-source="website_form" defer></script>`
               ),
-              React.createElement('p', { style: { color: '#888', marginTop: 8 } }, 'Скрипт автоматически найдёт все формы, подхватит поля (имя, телефон, email), UTM-метки и будет отправлять заявки на дашборд.'),
+              React.createElement('p', { style: { color: '#64748b', marginTop: 8 } }, 'Скрипт автоматически найдёт все формы, подхватит поля (имя, телефон, email), UTM-метки и будет отправлять заявки на дашборд.'),
               React.createElement(Divider, null),
               React.createElement(Typography.Title, { level: 4 }, '3. Google Ads / Яндекс.Директ'),
               React.createElement('p', null, 'Настройте отслеживание конверсий с отправкой данных на наш вебхук при совершении целевых действий.')
@@ -242,36 +441,96 @@ function App() {
     loadConnectors();
   }, []);
 
+  const getStatusBadge = (status) => {
+    if (!status) return React.createElement('span', { className: 'status-pending' }, 'Ожидает');
+    
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('оплач') || statusLower.includes('paid') || statusLower.includes('успеш')) {
+      return React.createElement('span', { className: 'status-paid' }, 'Оплачено');
+    } else if (statusLower.includes('отказ') || statusLower.includes('failed') || statusLower.includes('неудач')) {
+      return React.createElement('span', { className: 'status-failed' }, 'Отказ');
+    } else {
+      return React.createElement('span', { className: 'status-pending' }, status);
+    }
+  };
+
   const columns = [
-    { title: 'Время', dataIndex: 'time', key: 'time', width: 100 },
+    { 
+      title: 'Время', 
+      dataIndex: 'created_at', 
+      key: 'created_at', 
+      width: 120,
+      render: (date) => date ? new Date(date).toLocaleString('ru-RU', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }) : '-'
+    },
     { title: 'Телефон', dataIndex: 'phone', key: 'phone', width: 120 },
     { title: 'Имя', dataIndex: 'name', key: 'name', width: 100 },
-    { title: 'Источник', dataIndex: 'source', key: 'source', width: 120 },
+    { 
+      title: 'Источник', 
+      dataIndex: 'source', 
+      key: 'source', 
+      width: 120,
+      render: (source) => React.createElement(Badge, { 
+        color: source === 'website_form' ? 'green' : source === 'google Ads' ? 'blue' : 'orange',
+        text: source || 'Неизвестно'
+      })
+    },
     { title: 'Компания', dataIndex: 'company', key: 'company', width: 120 },
     { title: 'Группа', dataIndex: 'group_name', key: 'group_name', width: 150 },
     { title: 'Ключевые слова', dataIndex: 'keywords', key: 'keywords', width: 200 },
-    { title: 'Конверсия', dataIndex: 'conversion', key: 'conversion', width: 120 },
+    { 
+      title: 'Конверсия', 
+      dataIndex: 'conversion', 
+      key: 'conversion', 
+      width: 120,
+      render: (conversion) => conversion ? 
+        React.createElement(Badge, { color: 'green', text: conversion }) : 
+        React.createElement(Badge, { color: 'gray', text: 'Нет' })
+    },
     { title: 'Микроконверсия', dataIndex: 'micro_conversion', key: 'micro_conversion', width: 120 },
     { title: 'Клики фильтра', dataIndex: 'micro_clicks', key: 'micro_clicks', width: 100 },
     { title: 'Город', dataIndex: 'city', key: 'city', width: 100 },
-    { title: 'Статус', dataIndex: 'status', key: 'status', width: 100 },
-    { title: 'Сумма', dataIndex: 'amount', key: 'amount', width: 100 },
-    { title: 'Расход', dataIndex: 'spend', key: 'spend', width: 100 },
+    { 
+      title: 'Статус оплаты', 
+      dataIndex: 'status', 
+      key: 'status', 
+      width: 120,
+      render: (status) => getStatusBadge(status)
+    },
+    { 
+      title: 'Сумма ₸', 
+      dataIndex: 'amount', 
+      key: 'amount', 
+      width: 100,
+      render: (amount) => amount ? `₸${amount.toFixed(0)}` : '-'
+    },
+    { 
+      title: 'Расход ₸', 
+      dataIndex: 'spend', 
+      key: 'spend', 
+      width: 100,
+      render: (spend) => spend ? `₸${spend.toFixed(2)}` : '-'
+    },
   ];
 
   return (
-    React.createElement(ConfigProvider, { theme: { algorithm: theme.darkAlgorithm } },
-      React.createElement('div', { style: { minHeight: '100vh', background: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%)' } },
+    React.createElement(ConfigProvider, { theme: { algorithm: theme.defaultAlgorithm } },
+      React.createElement('div', { style: { minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%)' } },
         React.createElement('div', { style: { maxWidth: '1400px', margin: '0 auto', padding: '24px 16px' } }, [
           React.createElement('div', { 
             key: 'header',
             style: { 
               textAlign: 'center', 
               marginBottom: '32px',
-              background: 'rgba(255,255,255,0.05)',
+              background: 'rgba(255,255,255,0.8)',
               padding: '24px',
-              borderRadius: '12px',
-              backdropFilter: 'blur(10px)'
+              borderRadius: '16px',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             } 
           }, [
             React.createElement('h1', { 
@@ -279,7 +538,7 @@ function App() {
                 fontSize: '32px', 
                 fontWeight: '700', 
                 margin: '0 0 8px 0',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent'
               } 
@@ -287,7 +546,7 @@ function App() {
             React.createElement('p', { 
               style: { 
                 fontSize: '16px', 
-                color: '#a0a0a0', 
+                color: '#64748b', 
                 margin: 0 
               } 
             }, 'Универсальная система аналитики для любых сайтов и CRM')
@@ -298,12 +557,17 @@ function App() {
             React.createElement(ConnectorsList, { key: 'connectors', connectors })
           ]),
           React.createElement(Filters, { key: 'filters', filters, setFilters, reload: load }),
+          React.createElement(ChartsSection, { key: 'charts', data }),
+          React.createElement(UTMAnalytics, { key: 'utm', data }),
           React.createElement(Card, { 
             key: 'table',
+            title: '📋 Детальная таблица лидов',
             style: { 
-              background: 'rgba(255,255,255,0.05)',
+              background: 'rgba(255,255,255,0.8)',
               backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.1)'
+              border: '1px solid rgba(226, 232, 240, 0.6)',
+              borderRadius: '16px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }
           },
             React.createElement(Table, { 
@@ -311,7 +575,7 @@ function App() {
               dataSource: data, 
               columns, 
               pagination: { pageSize: 20 },
-              scroll: { x: 1500 },
+              scroll: { x: 1800 },
               size: 'small'
             })
           )

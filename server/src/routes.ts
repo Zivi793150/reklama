@@ -35,6 +35,13 @@ router.post('/webhook/:source', (req, res) => {
     amount: payload.amount || payload.revenue || undefined,
     spend: payload.spend || payload.cost || undefined,
     product: payload.product || payload.item || undefined,
+    utm_source: payload.utm_source || undefined,
+    utm_medium: payload.utm_medium || undefined,
+    utm_campaign: payload.utm_campaign || undefined,
+    utm_term: payload.utm_term || undefined,
+    utm_content: payload.utm_content || undefined,
+    email: payload.email || payload.mail || undefined,
+    page: payload.page || undefined,
     raw: payload,
   };
   insertLead(mapped);
@@ -101,6 +108,13 @@ router.post('/upload-csv', upload.single('csv'), (req, res) => {
             case 'статус': case 'status': lead.status = value; break;
             case 'сумма': case 'amount': lead.amount = parseFloat(value) || 0; break;
             case 'расход': case 'spend': lead.spend = parseFloat(value) || 0; break;
+            case 'utm_source': case 'utm source': lead.utm_source = value; break;
+            case 'utm_medium': case 'utm medium': lead.utm_medium = value; break;
+            case 'utm_campaign': case 'utm campaign': lead.utm_campaign = value; break;
+            case 'utm_term': case 'utm term': lead.utm_term = value; break;
+            case 'utm_content': case 'utm content': lead.utm_content = value; break;
+            case 'email': case 'почта': lead.email = value; break;
+            case 'страница': case 'page': lead.page = value; break;
           }
         }
       });
