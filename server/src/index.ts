@@ -200,6 +200,35 @@ app.get('/integrate.js', (_req, res) => {
       return nativeFetch.apply(this, arguments);
     };
   } catch(_) {}
+
+  // Intercept XMLHttpRequest that sends FormData
+  try {
+    const NativeXHR = window.XMLHttpRequest;
+    const originalOpen = NativeXHR.prototype.open;
+    const originalSend = NativeXHR.prototype.send;
+    NativeXHR.prototype.open = function(method, url) {
+      try { this.__analyticsMethod = (method || '').toString().toUpperCase(); } catch(_) {}
+      return originalOpen.apply(this, arguments);
+    };
+    NativeXHR.prototype.send = function(body) {
+      try {
+        if (body && typeof FormData !== 'undefined' && body instanceof FormData) {
+          const data = {} as any;
+          body.forEach((v, k) => { if (!(k in data)) data[k] = v; });
+          if (data && (data.name || data.phone || data.email)) {
+            const payload = Object.assign(
+              { page: window.location.href, source: currentScript.getAttribute('data-source') || 'website_form' },
+              getUTM(),
+              data
+            );
+            sendLead(payload);
+            log('xhr FormData mirrored');
+          }
+        }
+      } catch(_) {}
+      return originalSend.apply(this, arguments);
+    };
+  } catch(_) {}
 })();`;
   res.send(script);
 });
