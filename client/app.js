@@ -321,14 +321,14 @@ function UTMAnalytics({ data }) {
   }));
   
   const utmColumns = [
-    { title: 'Источник', dataIndex: 'source', key: 'source' },
-    { title: 'Канал', dataIndex: 'medium', key: 'medium' },
-    { title: 'Кампания', dataIndex: 'campaign', key: 'campaign' },
-    { title: 'Лиды', dataIndex: 'leads', key: 'leads' },
-    { title: 'Конверсии', dataIndex: 'conversions', key: 'conversions' },
-    { title: 'Конверсия %', dataIndex: 'conversionRate', key: 'conversionRate' },
-    { title: 'Расход ₸', dataIndex: 'spend', key: 'spend' },
-    { title: 'CPA ₸', dataIndex: 'cpa', key: 'cpa' }
+    { title: 'Источник', dataIndex: 'source', key: 'source', width: 140 },
+    { title: 'Канал', dataIndex: 'medium', key: 'medium', width: 120 },
+    { title: 'Кампания', dataIndex: 'campaign', key: 'campaign', width: 180 },
+    { title: 'Лиды', dataIndex: 'leads', key: 'leads', width: 80 },
+    { title: 'Конверсии', dataIndex: 'conversions', key: 'conversions', width: 100 },
+    { title: 'Конверсия %', dataIndex: 'conversionRate', key: 'conversionRate', width: 120 },
+    { title: 'Расход ₸', dataIndex: 'spend', key: 'spend', width: 120 },
+    { title: 'CPA ₸', dataIndex: 'cpa', key: 'cpa', width: 100 }
   ];
   
   return (
@@ -459,7 +459,7 @@ function App() {
       title: 'Время', 
       dataIndex: 'created_at', 
       key: 'created_at', 
-      width: 120,
+      width: 140,
       render: (date) => date ? new Date(date).toLocaleString('ru-RU', { 
         day: '2-digit', 
         month: '2-digit', 
@@ -467,52 +467,52 @@ function App() {
         minute: '2-digit' 
       }) : '-'
     },
-    { title: 'Телефон', dataIndex: 'phone', key: 'phone', width: 120 },
-    { title: 'Имя', dataIndex: 'name', key: 'name', width: 100 },
+    { title: 'Телефон', dataIndex: 'phone', key: 'phone', width: 140 },
+    { title: 'Имя', dataIndex: 'name', key: 'name', width: 120 },
     { 
       title: 'Источник', 
       dataIndex: 'source', 
       key: 'source', 
-      width: 120,
+      width: 140,
       render: (source) => React.createElement(Badge, { 
         color: source === 'website_form' ? 'green' : source === 'google Ads' ? 'blue' : 'orange',
         text: source || 'Неизвестно'
       })
     },
-    { title: 'Компания', dataIndex: 'company', key: 'company', width: 120 },
-    { title: 'Группа', dataIndex: 'group_name', key: 'group_name', width: 150 },
-    { title: 'Ключевые слова', dataIndex: 'keywords', key: 'keywords', width: 200 },
+    { title: 'Компания', dataIndex: 'company', key: 'company', width: 140 },
+    { title: 'Группа', dataIndex: 'group_name', key: 'group_name', width: 180 },
+    { title: 'Ключевые слова', dataIndex: 'keywords', key: 'keywords', width: 250 },
     { 
       title: 'Конверсия', 
       dataIndex: 'conversion', 
       key: 'conversion', 
-      width: 120,
+      width: 140,
       render: (conversion) => conversion ? 
         React.createElement(Badge, { color: 'green', text: conversion }) : 
         React.createElement(Badge, { color: 'gray', text: 'Нет' })
     },
-    { title: 'Микроконверсия', dataIndex: 'micro_conversion', key: 'micro_conversion', width: 120 },
-    { title: 'Клики фильтра', dataIndex: 'micro_clicks', key: 'micro_clicks', width: 100 },
-    { title: 'Город', dataIndex: 'city', key: 'city', width: 100 },
+    { title: 'Микроконверсия', dataIndex: 'micro_conversion', key: 'micro_conversion', width: 140 },
+    { title: 'Клики фильтра', dataIndex: 'micro_clicks', key: 'micro_clicks', width: 120 },
+    { title: 'Город', dataIndex: 'city', key: 'city', width: 120 },
     { 
       title: 'Статус оплаты', 
       dataIndex: 'status', 
       key: 'status', 
-      width: 120,
+      width: 140,
       render: (status) => getStatusBadge(status)
     },
     { 
       title: 'Сумма ₸', 
       dataIndex: 'amount', 
       key: 'amount', 
-      width: 100,
+      width: 120,
       render: (amount) => amount ? `₸${amount.toFixed(0)}` : '-'
     },
     { 
       title: 'Расход ₸', 
       dataIndex: 'spend', 
       key: 'spend', 
-      width: 100,
+      width: 120,
       render: (spend) => spend ? `₸${spend.toFixed(2)}` : '-'
     },
   ];
@@ -520,7 +520,7 @@ function App() {
   return (
     React.createElement(ConfigProvider, { theme: { algorithm: theme.defaultAlgorithm } },
       React.createElement('div', { style: { minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%)' } },
-        React.createElement('div', { style: { maxWidth: '1400px', margin: '0 auto', padding: '24px 16px' } }, [
+        React.createElement('div', { style: { maxWidth: '1800px', margin: '0 auto', padding: '24px 16px' } }, [
           React.createElement('div', { 
             key: 'header',
             style: { 
@@ -575,7 +575,6 @@ function App() {
               dataSource: data, 
               columns, 
               pagination: { pageSize: 20 },
-              scroll: { x: 1800 },
               size: 'small'
             })
           )
