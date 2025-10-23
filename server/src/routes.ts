@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { insertLead, listLeads, getMetrics, LeadInput } from './db';
+import { insertLead, listLeads, getMetrics, LeadInput, checkDuplicateLead } from './db';
 import multer from 'multer';
 
 export const router = Router();
@@ -29,7 +29,7 @@ router.post('/webhook/:source', (req, res) => {
     keywords: payload.keywords || payload.keyword || undefined,
     conversion: payload.conversion || payload.event || undefined,
     micro_conversion: payload.micro_conversion || payload.micro || undefined,
-    micro_clicks: payload.micro_clicks || undefined,
+    micro_clicks: payload.micro_clicks || payload.time_on_page || undefined,
     city: payload.city || payload.location || undefined,
     status: payload.status || undefined,
     amount: payload.amount || payload.revenue || undefined,
@@ -44,8 +44,15 @@ router.post('/webhook/:source', (req, res) => {
     page: payload.page || undefined,
     raw: payload,
   };
+  
+  // Check for duplicates
+  const duplicate = checkDuplicateLead(mapped.phone, mapped.email);
+  if (duplicate) {
+    return res.status(200).json({ ok: true, duplicate: true, existing_lead_id: duplicate.id });
+  }
+  
   insertLead(mapped);
-  res.status(201).json({ ok: true });
+  res.status(201).json({ ok: true, duplicate: false });
 });
 
 router.get('/leads', (req, res) => {

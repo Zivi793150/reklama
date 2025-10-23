@@ -28,6 +28,7 @@ app.get('/integrate.js', (_req, res) => {
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Cache-Control', 'public, max-age=300');
   const script = `(() => {
+  // Enhanced analytics with click tracking and session data
   const currentScript = document.currentScript || (function() { const scripts = document.getElementsByTagName('script'); return scripts[scripts.length - 1]; })();
   const base = new URL(currentScript.src).origin;
   const endpoint = base + '/api/webhook/forms';
@@ -228,6 +229,77 @@ app.get('/integrate.js', (_req, res) => {
       } catch(_) {}
       return originalSend.apply(this, arguments);
     };
+  } catch(_) {}
+  
+  // Track phone and messenger clicks
+  const sessionStart = Date.now();
+  const clickEndpoint = base + '/api/webhook/clicks';
+  
+  function sendClick(clickData) {
+    try {
+      const payload = Object.assign(
+        {
+          page: window.location.href,
+          source: currentScript.getAttribute('data-source') || 'website_click',
+          time_on_page: Math.floor((Date.now() - sessionStart) / 1000)
+        },
+        getUTM(),
+        clickData
+      );
+      const body = JSON.stringify(payload);
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(clickEndpoint, new Blob([body], { type: 'application/json' }));
+      } else {
+        fetch(clickEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true });
+      }
+      log('click tracked', clickData);
+    } catch(_) {}
+  }
+  
+  // Track tel: links
+  document.addEventListener('click', (ev) => {
+    try {
+      const target = ev.target;
+      if (!target) return;
+      
+      // Find closest anchor tag
+      const link = target.closest ? target.closest('a') : (target.tagName === 'A' ? target : null);
+      if (!link) return;
+      
+      const href = link.getAttribute('href') || '';
+      
+      // Phone clicks
+      if (href.startsWith('tel:')) {
+        const phone = href.replace('tel:', '').trim();
+        sendClick({ conversion: 'phone_click', phone, micro_conversion: 'tel_link' });
+      }
+      // WhatsApp
+      else if (href.includes('wa.me') || href.includes('whatsapp.com') || href.includes('api.whatsapp')) {
+        const phone = href.match(/\d+/)?.[0] || '';
+        sendClick({ conversion: 'whatsapp_click', phone, micro_conversion: 'messenger' });
+      }
+      // Telegram
+      else if (href.includes('t.me') || href.includes('telegram.me')) {
+        const username = href.split('/').pop() || '';
+        sendClick({ conversion: 'telegram_click', name: username, micro_conversion: 'messenger' });
+      }
+      // Viber
+      else if (href.includes('viber://')) {
+        sendClick({ conversion: 'viber_click', micro_conversion: 'messenger' });
+      }
+    } catch(_) {}
+  }, true);
+  
+  // Track time on page on unload
+  try {
+    window.addEventListener('beforeunload', () => {
+      try {
+        const timeOnPage = Math.floor((Date.now() - sessionStart) / 1000);
+        if (timeOnPage > 3) {
+          sendClick({ micro_conversion: 'session_time', micro_clicks: timeOnPage });
+        }
+      } catch(_) {}
+    });
   } catch(_) {}
 })();`;
   res.send(script);

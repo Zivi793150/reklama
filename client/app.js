@@ -1,5 +1,5 @@
 const { useEffect, useState, useRef } = React;
-const { Table, Card, Row, Col, DatePicker, Select, Input, Space, Statistic, ConfigProvider, theme, Button, Upload, Modal, Tabs, Typography, Divider, Tag, message, Progress, Badge } = antd;
+const { Table, Card, Row, Col, DatePicker, Select, Input, Space, Statistic, ConfigProvider, theme, Button, Upload, Modal, Tabs, Typography, Divider, Tag, message, Progress, Badge, Skeleton, Alert, Spin, Empty } = antd;
 
 function fetchJSON(url) {
   return axios.get(url).then(r => r.data);
@@ -69,37 +69,65 @@ function SummaryCards({ metrics }) {
   );
 }
 
-function Filters({ filters, setFilters, reload }) {
+function Filters({ filters, setFilters, reload, loading, uniqueValues }) {
+  const hasActiveFilters = filters.from || filters.to || filters.source || filters.city || filters.product;
+  
+  const clearAllFilters = () => {
+    setFilters({});
+    setTimeout(() => reload(), 0);
+  };
+  
   return (
     React.createElement(Card, { style: { marginBottom: 16 } },
       React.createElement(Space, { wrap: true, style: { width: '100%' } }, [
         React.createElement(DatePicker.RangePicker, {
           key: 'dates',
           placeholder: ['От', 'До'],
+          format: 'DD.MM.YYYY',
           onChange: (v) => setFilters(f => ({ ...f, from: v?.[0]?.toISOString(), to: v?.[1]?.toISOString() }))
         }),
-        React.createElement(Input, { 
+        React.createElement(Select, { 
           key: 'source', 
           placeholder: 'Источник', 
           allowClear: true, 
-          style: { width: 180 },
-          onChange: e => setFilters(f => ({ ...f, source: e.target.value || undefined })) 
+          showSearch: true,
+          style: { width: 200 },
+          value: filters.source,
+          onChange: v => setFilters(f => ({ ...f, source: v })),
+          options: uniqueValues.sources?.map(s => ({ label: `${s.value} (${s.count})`, value: s.value })) || []
         }),
-        React.createElement(Input, { 
+        React.createElement(Select, { 
           key: 'city', 
           placeholder: 'Город', 
           allowClear: true, 
-          style: { width: 160 },
-          onChange: e => setFilters(f => ({ ...f, city: e.target.value || undefined })) 
+          showSearch: true,
+          style: { width: 180 },
+          value: filters.city,
+          onChange: v => setFilters(f => ({ ...f, city: v })),
+          options: uniqueValues.cities?.map(c => ({ label: `${c.value} (${c.count})`, value: c.value })) || []
         }),
-        React.createElement(Input, { 
+        React.createElement(Select, { 
           key: 'product', 
           placeholder: 'Продукт', 
           allowClear: true, 
+          showSearch: true,
           style: { width: 200 },
-          onChange: e => setFilters(f => ({ ...f, product: e.target.value || undefined })) 
+          value: filters.product,
+          onChange: v => setFilters(f => ({ ...f, product: v })),
+          options: uniqueValues.products?.map(p => ({ label: `${p.value} (${p.count})`, value: p.value })) || []
         }),
-        React.createElement(Button, { type: 'primary', onClick: reload }, 'Обновить')
+        React.createElement(Button, { 
+          key: 'reload',
+          type: 'primary', 
+          onClick: reload,
+          loading: loading,
+          icon: loading ? null : '🔄'
+        }, 'Обновить'),
+        hasActiveFilters && React.createElement(Button, { 
+          key: 'clear',
+          onClick: clearAllFilters,
+          icon: '❌'
+        }, 'Очистить')
       ])
     )
   );
@@ -161,6 +189,8 @@ function CSVUpload({ onUpload }) {
 function ChartsSection({ data }) {
   const chartRef = useRef(null);
   const pieChartRef = useRef(null);
+  const lineChartInstance = useRef(null);
+  const pieChartInstance = useRef(null);
   
   useEffect(() => {
     if (!data || data.length === 0) return;
@@ -184,12 +214,15 @@ function ChartsSection({ data }) {
       dailyData[date] = (dailyData[date] || 0) + 1;
     });
     
-    // Line chart for daily leads
+    // Line chart for daily leads - destroy old instance first
     if (chartRef.current) {
+      if (lineChartInstance.current) {
+        lineChartInstance.current.destroy();
+      }
       const ctx = chartRef.current.getContext('2d');
       const sortedDates = Object.keys(dailyData).sort();
       
-      new Chart(ctx, {
+      lineChartInstance.current = new Chart(ctx, {
         type: 'line',
         data: {
           labels: sortedDates,
@@ -204,9 +237,14 @@ function ChartsSection({ data }) {
         },
         options: {
           responsive: true,
+          maintainAspectRatio: true,
           plugins: {
             legend: {
               display: false
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false
             }
           },
           scales: {
@@ -221,31 +259,57 @@ function ChartsSection({ data }) {
       });
     }
     
-    // Pie chart for sources
+    // Pie chart for sources - destroy old instance first
     if (pieChartRef.current) {
+      if (pieChartInstance.current) {
+        pieChartInstance.current.destroy();
+      }
       const ctx = pieChartRef.current.getContext('2d');
-      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
       
-      new Chart(ctx, {
+      pieChartInstance.current = new Chart(ctx, {
         type: 'doughnut',
         data: {
           labels: Object.keys(sourceData),
           datasets: [{
             data: Object.values(sourceData),
             backgroundColor: colors.slice(0, Object.keys(sourceData).length),
-            borderWidth: 0
+            borderWidth: 2,
+            borderColor: '#fff'
           }]
         },
         options: {
           responsive: true,
+          maintainAspectRatio: true,
           plugins: {
             legend: {
-              position: 'bottom'
+              position: 'bottom',
+              labels: {
+                padding: 15,
+                usePointStyle: true
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  return `${label}: ${value} (${percentage}%)`;
+                }
+              }
             }
           }
         }
       });
     }
+    
+    // Cleanup on unmount
+    return () => {
+      if (lineChartInstance.current) lineChartInstance.current.destroy();
+      if (pieChartInstance.current) pieChartInstance.current.destroy();
+    };
   }, [data]);
   
   return (
@@ -425,20 +489,99 @@ function App() {
   const [data, setData] = useState([]);
   const [metrics, setMetrics] = useState({});
   const [connectors, setConnectors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [uniqueValues, setUniqueValues] = useState({ sources: [], cities: [], products: [] });
+  const autoRefreshInterval = useRef(null);
 
-  const load = () => {
-    const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v))).toString();
-    fetchJSON(`/api/leads${q ? `?${q}` : ''}`).then(res => setData(res.data));
-    fetchJSON(`/api/metrics${q ? `?${q}` : ''}`).then(setMetrics);
+  const load = async (isAutoRefresh = false) => {
+    if (!isAutoRefresh) setLoading(true);
+    setError(null);
+    
+    try {
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v))).toString();
+      const [leadsRes, metricsRes] = await Promise.all([
+        fetchJSON(`/api/leads${q ? `?${q}` : ''}`),
+        fetchJSON(`/api/metrics${q ? `?${q}` : ''}`)
+      ]);
+      
+      setData(leadsRes.data);
+      setMetrics(metricsRes);
+      setLastUpdate(new Date());
+      
+      // Extract unique values for filters
+      const sources = {};
+      const cities = {};
+      const products = {};
+      
+      leadsRes.data.forEach(lead => {
+        if (lead.source) sources[lead.source] = (sources[lead.source] || 0) + 1;
+        if (lead.city) cities[lead.city] = (cities[lead.city] || 0) + 1;
+        if (lead.company) products[lead.company] = (products[lead.company] || 0) + 1;
+      });
+      
+      setUniqueValues({
+        sources: Object.entries(sources).map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count),
+        cities: Object.entries(cities).map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count),
+        products: Object.entries(products).map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count)
+      });
+    } catch (err) {
+      setError(err.message || 'Не удалось загрузить данные');
+      message.error('Ошибка загрузки данных');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadConnectors = () => {
-    fetchJSON('/api/connectors').then(res => setConnectors(res.connectors));
+    fetchJSON('/api/connectors').then(res => setConnectors(res.connectors)).catch(() => {});
+  };
+  
+  const exportToCSV = () => {
+    const headers = ['Время', 'Телефон', 'Имя', 'Источник', 'Компания', 'Группа', 'Ключевые слова', 'Конверсия', 'Микроконверсия', 'Клики фильтра', 'Город', 'Статус', 'Сумма', 'Расход'];
+    const rows = data.map(lead => [
+      lead.created_at ? new Date(lead.created_at).toLocaleString('ru-RU') : '',
+      lead.phone || '',
+      lead.name || '',
+      lead.source || '',
+      lead.company || '',
+      lead.group_name || '',
+      lead.keywords || '',
+      lead.conversion || '',
+      lead.micro_conversion || '',
+      lead.micro_clicks || '',
+      lead.city || '',
+      lead.status || '',
+      lead.amount || '',
+      lead.spend || ''
+    ]);
+    
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leads_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    message.success(`Экспортировано ${data.length} записей`);
   };
 
   useEffect(() => { 
     load(); 
     loadConnectors();
+    
+    // Auto-refresh every 30 seconds
+    autoRefreshInterval.current = setInterval(() => {
+      load(true);
+    }, 30000);
+    
+    return () => {
+      if (autoRefreshInterval.current) clearInterval(autoRefreshInterval.current);
+    };
   }, []);
 
   const getStatusBadge = (status) => {
@@ -460,6 +603,8 @@ function App() {
       dataIndex: 'created_at', 
       key: 'created_at', 
       width: 140,
+      sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at),
+      fixed: 'left',
       render: (date) => date ? new Date(date).toLocaleString('ru-RU', { 
         day: '2-digit', 
         month: '2-digit', 
@@ -467,13 +612,15 @@ function App() {
         minute: '2-digit' 
       }) : '-'
     },
-    { title: 'Телефон', dataIndex: 'phone', key: 'phone', width: 140 },
+    { title: 'Телефон', dataIndex: 'phone', key: 'phone', width: 140, fixed: 'left' },
     { title: 'Имя', dataIndex: 'name', key: 'name', width: 120 },
     { 
       title: 'Источник', 
       dataIndex: 'source', 
       key: 'source', 
       width: 140,
+      filters: uniqueValues.sources?.map(s => ({ text: s.value, value: s.value })),
+      onFilter: (value, record) => record.source === value,
       render: (source) => React.createElement(Badge, { 
         color: source === 'website_form' ? 'green' : source === 'google Ads' ? 'blue' : 'orange',
         text: source || 'Неизвестно'
@@ -492,8 +639,15 @@ function App() {
         React.createElement(Badge, { color: 'gray', text: 'Нет' })
     },
     { title: 'Микроконверсия', dataIndex: 'micro_conversion', key: 'micro_conversion', width: 140 },
-    { title: 'Клики фильтра', dataIndex: 'micro_clicks', key: 'micro_clicks', width: 120 },
-    { title: 'Город', dataIndex: 'city', key: 'city', width: 120 },
+    { title: 'Клики фильтра', dataIndex: 'micro_clicks', key: 'micro_clicks', width: 120, sorter: (a, b) => (a.micro_clicks || 0) - (b.micro_clicks || 0) },
+    { 
+      title: 'Город', 
+      dataIndex: 'city', 
+      key: 'city', 
+      width: 120,
+      filters: uniqueValues.cities?.map(c => ({ text: c.value, value: c.value })),
+      onFilter: (value, record) => record.city === value
+    },
     { 
       title: 'Статус оплаты', 
       dataIndex: 'status', 
@@ -506,6 +660,7 @@ function App() {
       dataIndex: 'amount', 
       key: 'amount', 
       width: 120,
+      sorter: (a, b) => (a.amount || 0) - (b.amount || 0),
       render: (amount) => amount ? `₸${amount.toFixed(0)}` : '-'
     },
     { 
@@ -513,6 +668,7 @@ function App() {
       dataIndex: 'spend', 
       key: 'spend', 
       width: 120,
+      sorter: (a, b) => (a.spend || 0) - (b.spend || 0),
       render: (spend) => spend ? `₸${spend.toFixed(2)}` : '-'
     },
   ];
@@ -534,6 +690,7 @@ function App() {
             } 
           }, [
             React.createElement('h1', { 
+              key: 'title',
               style: { 
                 fontSize: '32px', 
                 fontWeight: '700', 
@@ -544,40 +701,76 @@ function App() {
               } 
             }, '📊 Аналитика рекламных кампаний'),
             React.createElement('p', { 
+              key: 'subtitle',
               style: { 
                 fontSize: '16px', 
                 color: '#64748b', 
                 margin: 0 
               } 
-            }, 'Универсальная система аналитики для любых сайтов и CRM')
+            }, 'Универсальная система аналитики для любых сайтов и CRM'),
+            lastUpdate && React.createElement('div', {
+              key: 'last-update',
+              style: { fontSize: '12px', color: '#94a3b8', marginTop: '8px' }
+            }, `Последнее обновление: ${lastUpdate.toLocaleTimeString('ru-RU')}`)
           ]),
-          React.createElement(SummaryCards, { key: 'summary', metrics }),
-          React.createElement('div', { key: 'actions', style: { display: 'flex', gap: '12px', marginBottom: '16px' } }, [
-            React.createElement(CSVUpload, { key: 'csv', onUpload: load }),
-            React.createElement(ConnectorsList, { key: 'connectors', connectors })
-          ]),
-          React.createElement(Filters, { key: 'filters', filters, setFilters, reload: load }),
-          React.createElement(ChartsSection, { key: 'charts', data }),
-          React.createElement(UTMAnalytics, { key: 'utm', data }),
-          React.createElement(Card, { 
-            key: 'table',
-            title: '📋 Детальная таблица лидов',
-            style: { 
-              background: 'rgba(255,255,255,0.8)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(226, 232, 240, 0.6)',
-              borderRadius: '16px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }
-          },
-            React.createElement(Table, { 
-              rowKey: 'id', 
-              dataSource: data, 
-              columns, 
-              pagination: { pageSize: 20 },
-              size: 'small'
-            })
-          )
+          error && React.createElement(Alert, {
+            key: 'error',
+            message: 'Ошибка загрузки',
+            description: error,
+            type: 'error',
+            showIcon: true,
+            closable: true,
+            style: { marginBottom: 16 },
+            action: React.createElement(Button, { size: 'small', onClick: () => load() }, 'Повторить')
+          }),
+          loading ? 
+            React.createElement(Skeleton, { key: 'skeleton', active: true, paragraph: { rows: 10 } }) :
+            React.createElement(React.Fragment, null, [
+              React.createElement(SummaryCards, { key: 'summary', metrics }),
+              React.createElement('div', { key: 'actions', style: { display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' } }, [
+                React.createElement(CSVUpload, { key: 'csv', onUpload: load }),
+                React.createElement(ConnectorsList, { key: 'connectors', connectors }),
+                React.createElement(Button, { 
+                  key: 'export',
+                  onClick: exportToCSV,
+                  disabled: data.length === 0,
+                  style: { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none' }
+                }, `📄 Экспорт (${data.length})`)
+              ]),
+              React.createElement(Filters, { key: 'filters', filters, setFilters, reload: load, loading, uniqueValues }),
+              data.length === 0 ?
+                React.createElement(Card, { key: 'empty', style: { marginTop: 24, textAlign: 'center', padding: '60px 20px' } },
+                  React.createElement(Empty, { 
+                    description: 'Нет данных для отображения',
+                    image: Empty.PRESENTED_IMAGE_SIMPLE
+                  }),
+                  React.createElement('p', { style: { marginTop: 16, color: '#64748b' } }, 'Загрузите данные через CSV или подключите сайт')
+                ) :
+                React.createElement(React.Fragment, null, [
+                  React.createElement(ChartsSection, { key: 'charts', data }),
+                  React.createElement(UTMAnalytics, { key: 'utm', data }),
+                  React.createElement(Card, { 
+                    key: 'table',
+                    title: `📋 Детальная таблица лидов (${data.length})`,
+                    style: { 
+                      background: 'rgba(255,255,255,0.8)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(226, 232, 240, 0.6)',
+                      borderRadius: '16px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }
+                  },
+                    React.createElement(Table, { 
+                      rowKey: 'id', 
+                      dataSource: data, 
+                      columns, 
+                      pagination: { pageSize: 20, showSizeChanger: true, showTotal: (total) => `Всего: ${total}` },
+                      size: 'small',
+                      scroll: { x: 1800 }
+                    })
+                  )
+                ])
+            ])
         ])
       )
     )

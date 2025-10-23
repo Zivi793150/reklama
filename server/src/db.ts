@@ -70,6 +70,26 @@ export type LeadInput = {
   page?: string;
 };
 
+export function checkDuplicateLead(phone?: string, email?: string): any | null {
+  if (!phone && !email) return null;
+  
+  const conditions: string[] = [];
+  const values: Record<string, string> = {};
+  
+  if (phone) {
+    conditions.push('phone = @phone');
+    values.phone = phone;
+  }
+  if (email) {
+    conditions.push('email = @email');
+    values.email = email;
+  }
+  
+  const where = conditions.join(' OR ');
+  const stmt = db.prepare(`SELECT * FROM leads WHERE ${where} ORDER BY created_at DESC LIMIT 1`);
+  return stmt.get(values) || null;
+}
+
 export function insertLead(lead: LeadInput): void {
   const stmt = db.prepare(`
     insert into leads (

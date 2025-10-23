@@ -156,3 +156,105 @@ body {
   font-size: 12px !important;
   font-weight: 500 !important;
 }
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+  
+  /* Header adjustments */
+  h1 {
+    font-size: 24px !important;
+  }
+  
+  /* KPI Cards - stack vertically on mobile */
+  .ant-row {
+    flex-direction: column;
+  }
+  
+  .ant-col {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+  
+  /* Compact card padding */
+  .ant-card {
+    margin-bottom: 12px !important;
+  }
+  
+  .ant-card-body {
+    padding: 16px !important;
+  }
+  
+  /* Filter buttons - wrap properly */
+  .ant-space {
+    gap: 8px !important;
+  }
+  
+  .ant-space-item {
+    width: 100%;
+  }
+  
+  .ant-input, .ant-select, .ant-picker {
+    width: 100% !important;
+  }
+  
+  .ant-btn {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  /* Table - enable horizontal scroll */
+  .ant-table {
+    font-size: 12px !important;
+  }
+  
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px !important;
+  }
+  
+  /* Charts - adjust height for mobile */
+  .chart-container canvas {
+    max-height: 250px !important;
+  }
+  
+  /* Modal adjustments */
+  .ant-modal {
+    max-width: 95% !important;
+    margin: 16px auto !important;
+  }
+  
+  .ant-modal-body {
+    padding: 16px !important;
+  }
+  
+  /* Tabs */
+  .ant-tabs-tab {
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small screens */
+  h1 {
+    font-size: 20px !important;
+  }
+  
+  .ant-statistic-title {
+    font-size: 12px !important;
+  }
+  
+  .ant-statistic-content {
+    font-size: 18px !important;
+  }
+  
+  /* Hide less important columns on very small screens */
+  .ant-table-cell[data-index="group_name"],
+  .ant-table-cell[data-index="keywords"],
+  .ant-table-cell[data-index="micro_conversion"] {
+    display: none !important;
+  }
+}
